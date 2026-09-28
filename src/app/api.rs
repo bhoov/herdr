@@ -46,6 +46,16 @@ impl App {
                 self.handle_api_worktree_read_finished(*result);
                 changes_workspace
             }
+            AppEvent::PortsAnnounced { pane_id, ports } => {
+                tracing::debug!(pane = pane_id.raw(), ?ports, "pane output announced ports");
+                self.announced_ports
+                    .announce(pane_id, &ports, Instant::now());
+                false
+            }
+            AppEvent::PortProbeFinished { results } => {
+                tracing::debug!(?results, "announced port probe finished");
+                self.announced_ports.finish_probe(&results, Instant::now())
+            }
             ev @ AppEvent::TerminalBell { .. } => {
                 self.handle_internal_event(ev);
                 false

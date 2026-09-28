@@ -406,6 +406,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Set false to run plain ssh against your ssh config unchanged — this does not
 # force keepalive or multiplexing off, it only stops herdr from adding its own.
 # manage_ssh_config = true
+# Forward loopback ports that saved-machine panes print, such as localhost:5173,
+# to the same or a nearby port on this computer while they are listening.
+# forward_ports = true
 
 [experimental]
 # Allow launching herdr from inside a herdr-managed pane.

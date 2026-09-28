@@ -7826,3 +7826,107 @@ fn no_handle_internal_event_bypass_in_module() {
         bypass_lines.join("\n  ")
     );
 }
+
+fn read_port_announcements(
+    receiver: &std::sync::mpsc::Receiver<Vec<u8>>,
+) -> protocol::endpoint::EndpointPortAnnouncements {
+    let ServerMessage::EndpointControl { kind, data } = read_server_message(
+        receiver
+            .recv_timeout(Duration::from_secs(1))
+            .expect("port announcements"),
+    ) else {
+        panic!("expected port announcements");
+    };
+    assert_eq!(kind, protocol::endpoint::PORT_ANNOUNCEMENTS_KIND);
+    serde_json::from_str(&data).unwrap()
+}
+
+#[tokio::test]
+async fn port_announcements_reach_only_subscribed_shells() {
+    let mut server = test_headless_server();
+    let workspace = crate::workspace::Workspace::test_new("ports");
+    let pane_id = workspace.tabs[0].root_pane;
+    server.app.state.workspaces = vec![workspace];
+    server.app.state.ensure_test_terminals();
+    server.app.state.active = Some(0);
+    let mut receivers = Vec::new();
+    for client_id in [81, 82] {
+        let (writer, control_rx, _render_rx) = test_client_writer();
+        server.handle_server_event(ServerEvent::ClientShellConnected {
+            client_id,
+            surface_cols: 80,
+            surface_rows: 24,
+            cell_width_px: 0,
+            cell_height_px: 0,
+            pixel_mouse: false,
+            direct_graphics: false,
+            endpoint_keybindings: false,
+            mouse_capture: false,
+            surface_active: false,
+            surface_reuse: false,
+            surface_delta: false,
+            writer,
+        });
+        client_shell_projection(&control_rx);
+        receivers.push(control_rx);
+    }
+
+    // Without a subscriber, announced ports are not probed.
+    server
+        .app
+        .announced_ports
+        .announce(pane_id, &[5173], Instant::now());
+    server.handle_scheduled_tasks_headless(Instant::now(), false);
+    assert!(server.app.announced_ports.probe_deadline().is_some());
+
+    server.handle_server_event(ServerEvent::ClientShellPortSubscribe { client_id: 81 });
+    let initial = read_port_announcements(&receivers[0]);
+    assert_eq!(initial.boot_id, server.client_shell_boot_id);
+    assert!(initial.ports.is_empty());
+
+    // A subscriber on a background (surface-inactive) connection starts probes.
+    server.handle_scheduled_tasks_headless(Instant::now(), false);
+    assert_eq!(
+        server.app.announced_ports.probe_deadline(),
+        None,
+        "probe in flight"
+    );
+    assert!(
+        !server.handle_internal_event_with_forwarding(AppEvent::PortProbeFinished {
+            results: vec![(5173, true)],
+        })
+    );
+    let listening = read_port_announcements(&receivers[0]);
+    assert_eq!(listening.ports.len(), 1);
+    assert_eq!(listening.ports[0].port, 5173);
+    assert!(listening.ports[0].pane_id.is_some());
+    assert!(
+        receivers[1].try_recv().is_err(),
+        "unsubscribed shells receive nothing"
+    );
+
+    // An unchanged probe result is not broadcast again.
+    server.app.announced_ports.begin_probe();
+    server.handle_internal_event_with_forwarding(AppEvent::PortProbeFinished {
+        results: vec![(5173, true)],
+    });
+    assert!(receivers[0].try_recv().is_err());
+
+    // After every subscriber left, a new subscriber waits for a verifying probe, which drops
+    // a port that closed while nothing probed it.
+    server
+        .clients
+        .get_mut(&81)
+        .unwrap()
+        .shell_port_announcements = false;
+    server.handle_server_event(ServerEvent::ClientShellPortSubscribe { client_id: 82 });
+    assert!(
+        receivers[1].try_recv().is_err(),
+        "the unverified list waits"
+    );
+    server.app.announced_ports.begin_probe();
+    server.handle_internal_event_with_forwarding(AppEvent::PortProbeFinished {
+        results: vec![(5173, false)],
+    });
+    assert!(read_port_announcements(&receivers[1]).ports.is_empty());
+}

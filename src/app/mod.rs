@@ -18,6 +18,7 @@ mod custom_commands;
 mod git_refresh;
 mod ids;
 mod popup;
+mod ports;
 mod runtime;
 mod session;
 pub mod state;
@@ -116,6 +117,7 @@ pub struct App {
     pub(crate) last_git_remote_status_refresh: Instant,
     pub(crate) last_git_repo_discovery_refresh: Instant,
     pub(crate) git_refresh_in_flight: bool,
+    pub(crate) announced_ports: ports::AnnouncedPorts,
     pub(crate) git_refresh_due_after_in_flight: bool,
     pub(crate) git_identity_refresh_requested: bool,
     pub(crate) git_status_cache: HashMap<std::path::PathBuf, crate::workspace::GitStatusCacheEntry>,
@@ -577,6 +579,7 @@ impl App {
             last_git_remote_status_refresh: Instant::now() - GIT_REMOTE_STATUS_REFRESH_INTERVAL,
             last_git_repo_discovery_refresh: Instant::now(),
             git_refresh_in_flight: false,
+            announced_ports: ports::AnnouncedPorts::default(),
             git_refresh_due_after_in_flight: false,
             git_identity_refresh_requested: false,
             git_status_cache: HashMap::new(),

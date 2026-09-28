@@ -95,6 +95,7 @@ pub(super) struct ShellHitMap {
     pub(super) pane_splits: Vec<PaneSplitHit>,
     pub(super) agents: Vec<(Rect, String)>,
     pub(super) endpoint_agents: Vec<(Rect, ClientEndpointId, String)>,
+    pub(super) port_forwards: Vec<(Rect, u16)>,
     pub(super) agent_body: Rect,
     pub(super) agent_scrollbar: Rect,
     pub(super) agent_scroll_metrics: Option<crate::pane::ScrollMetrics>,
@@ -845,6 +846,7 @@ pub(super) struct ClientCopyModeState {
 
 pub(crate) struct ClientShellState {
     pub(super) machine_diagnostics: super::machine_diagnostics::MachineDiagnostics,
+    pub(super) port_forwards: Vec<crate::client::port_forward::PortForwardView>,
     pub(super) config: ClientShellConfig,
     pub(super) snapshot: Option<Box<ClientShellSnapshot>>,
     pub(super) active_snapshot_generation: Option<u64>,
@@ -1009,6 +1011,7 @@ impl ClientShellState {
         }
         Self {
             machine_diagnostics: Default::default(),
+            port_forwards: Vec::new(),
             config,
             snapshot: None,
             active_snapshot_generation: None,

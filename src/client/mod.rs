@@ -31,6 +31,7 @@ mod image_files;
 mod input;
 mod loop_config;
 mod notifications;
+pub(crate) mod port_forward;
 mod shell;
 mod shell_runtime;
 mod startup;
@@ -78,6 +79,27 @@ use terminal_setup::{
     effective_mouse_capture, effective_sgr_pixel_mouse, set_mouse_capture,
     setup_direct_attach_terminal, setup_terminal, should_draw_host_cursor, TerminalGuard,
 };
+
+/// Copies the forward list into the shell. Returns whether it changed.
+fn sync_port_forward_views(state: &mut ClientState, forwards: &port_forward::PortForwards) -> bool {
+    state
+        .shell
+        .as_mut()
+        .is_some_and(|shell| shell.set_port_forwards(forwards.views()))
+}
+
+fn present_port_forward_views(state: &mut ClientState, forwards: &port_forward::PortForwards) {
+    if !sync_port_forward_views(state, forwards) {
+        return;
+    }
+    if let Some(frame) = state
+        .shell
+        .as_mut()
+        .and_then(|shell| shell.compose(state.reported_size.0, state.reported_size.1))
+    {
+        state.present_frame(frame);
+    }
+}
 
 fn refresh_host_mouse_capture(enabled: bool, sgr_pixels: bool) {
     if let Err(err) = set_mouse_capture(enabled, sgr_pixels) {
@@ -199,6 +221,7 @@ fn run_client_with_mode(
         endpoint_keybindings,
         remote_image_paste_key,
         shell_config,
+        forward_ports: loaded_config.config.remote.forward_ports,
     };
 
     crate::logging::startup("client");
@@ -629,6 +652,14 @@ async fn run_client_loop(
             state.present_frame(frame);
         }
     }
+    let mut port_forwards = (config.forward_ports
+        && state.shell.is_some()
+        && !is_remote_client
+        && state.attach_escape.is_none())
+    .then(|| port_forward::PortForwards::new(tokio::runtime::Handle::current()));
+    if let Some(forwards) = port_forwards.as_mut() {
+        forwards.set_profiles(&endpoint_catalog.ssh);
+    }
     let mut next_surface_serial = 1_u64;
     let mut pending_activation: Option<endpoint::PendingEndpointActivation> = None;
     let mut scheduled_activation = None;
@@ -684,6 +715,10 @@ async fn run_client_loop(
                             profiles,
                             now,
                         );
+                        if let Some(forwards) = port_forwards.as_mut() {
+                            forwards.set_profiles(&endpoint_catalog.ssh);
+                            sync_port_forward_views(&mut state, forwards);
+                        }
                         if active_removed {
                             clear_endpoint_host_effects(
                                 &mut state,
@@ -1292,6 +1327,12 @@ async fn run_client_loop(
                     let agent_view_projection_supported = negotiation.supports_capability(
                         crate::protocol::endpoint::AGENT_VIEW_PROJECTION_CAPABILITY,
                     );
+                    // Local ports are already on this computer.
+                    let subscribe_ports = port_forwards.is_some()
+                        && !endpoint_id.is_local()
+                        && negotiation.supports_capability(
+                            crate::protocol::endpoint::PORT_ANNOUNCEMENTS_CAPABILITY,
+                        );
                     let frame = state.shell.as_mut().and_then(|shell| {
                         shell.set_endpoint_methods_for(&endpoint_id, Some(negotiation.methods()));
                         shell.set_endpoint_agent_view_projection_supported(
@@ -1310,6 +1351,16 @@ async fn run_client_loop(
                         negotiation,
                         false,
                     );
+                    if subscribe_ports {
+                        write_stream.send_to(
+                            &endpoint_id,
+                            &ClientMessage::EndpointControl {
+                                kind: crate::protocol::endpoint::PORT_ANNOUNCEMENTS_SUBSCRIBE_KIND
+                                    .into(),
+                                data: String::new(),
+                            },
+                        );
+                    }
                     if let Some(frame) = frame {
                         state.present_frame(frame);
                     }
@@ -2037,6 +2088,20 @@ async fn run_client_loop(
                                 }
                                 continue;
                             }
+                            Ok(endpoint::EndpointControlMessage::PortAnnouncements(
+                                announcements,
+                            )) => {
+                                // Local ports are already on this computer.
+                                if let (
+                                    endpoint::ClientEndpointId::Ssh(profile_id),
+                                    Some(forwards),
+                                ) = (&endpoint_id, port_forwards.as_mut())
+                                {
+                                    forwards.receive(profile_id, &announcements);
+                                    present_port_forward_views(&mut state, forwards);
+                                }
+                                continue;
+                            }
                             Ok(endpoint::EndpointControlMessage::Ignored) => {
                                 debug!(%kind, "ignoring unknown endpoint control message");
                                 continue;
@@ -2156,6 +2221,10 @@ async fn run_client_loop(
             }
             ClientLoopEvent::Timer => {
                 client_timer.fired();
+                if let Some(forwards) = port_forwards.as_mut() {
+                    forwards.tick(now);
+                    present_port_forward_views(&mut state, forwards);
+                }
                 #[cfg(unix)]
                 if let Ok(mut matcher) = state.direct_graphics_response.lock() {
                     matcher.expire();

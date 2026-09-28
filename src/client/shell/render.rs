@@ -231,6 +231,7 @@ pub(super) fn render_mode_bar(
 
 pub(super) struct ShellRenderState<'a> {
     pub(super) machine_diagnostics: &'a super::machine_diagnostics::MachineDiagnostics,
+    pub(super) port_forwards: &'a [crate::client::port_forward::PortForwardView],
     pub(super) endpoints: &'a [ClientShellEndpoint],
     pub(super) active_endpoint_id: &'a ClientEndpointId,
     pub(super) collapsed_endpoints: &'a HashSet<ClientEndpointId>,
@@ -332,6 +333,7 @@ pub(super) fn render_shell(
         hits.workspaces.clear();
         hits.agents.clear();
         hits.endpoint_agents.clear();
+        hits.port_forwards.clear();
         hits.tab_scroll_left = Rect::default();
         hits.tab_scroll_right = Rect::default();
         hits.new_tab = Rect::default();

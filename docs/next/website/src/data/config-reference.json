@@ -1459,6 +1459,12 @@
           "type": "boolean",
           "default": "true",
           "description": "Add keepalive fallbacks and private connection reuse for `herdr --remote`. Set false to run plain ssh unchanged."
+        },
+        {
+          "key": "remote.forward_ports",
+          "type": "boolean",
+          "default": "true",
+          "description": "Forward loopback ports that saved-machine panes print, such as `localhost:5173`, to the same or a nearby port on this computer while they are listening."
         }
       ]
     },

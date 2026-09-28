@@ -78,6 +78,7 @@ mod endpoint_requests;
 mod lifecycle;
 mod native_graphics;
 mod notifications;
+mod ports;
 mod render;
 mod retained_surface;
 mod surface_interest;
@@ -2283,6 +2284,10 @@ impl HeadlessServer {
                 client.host_mouse_capture_active = None;
                 true
             }
+            ServerEvent::ClientShellPortSubscribe { client_id } => {
+                self.subscribe_port_announcements(client_id);
+                false
+            }
             ServerEvent::ClientShellPresentationSync { client_id, token } => {
                 let Some(client) = self.clients.get_mut(&client_id) else {
                     return false;
@@ -3237,6 +3242,11 @@ impl HeadlessServer {
 
         if self.has_app_client() {
             self.app.start_git_status_refresh_if_due(now);
+        }
+        // Background machines also forward ports, so any subscriber counts. The loop wakes at
+        // least every CLIENT_ACCEPT_POLL_INTERVAL, which is finer than the probe intervals.
+        if self.has_port_subscriber() {
+            self.app.start_port_probe_if_due(now);
         }
 
         if self

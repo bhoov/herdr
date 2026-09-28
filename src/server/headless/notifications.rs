@@ -331,6 +331,14 @@ impl HeadlessServer {
                 }
                 false
             }
+            AppEvent::PortProbeFinished { .. } => {
+                if self.app.handle_internal_event_with_render_impact(ev)
+                    || self.has_pending_port_subscriber()
+                {
+                    self.broadcast_port_announcements();
+                }
+                false
+            }
             AppEvent::ClipboardWrite { content } => {
                 // Clipboard writes are client-local side effects. Forward them only to
                 // the foreground client instead of broadcasting to every attached client.

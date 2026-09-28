@@ -31,6 +31,28 @@ pub const AGENT_VIEW_PROJECTION_CAPABILITY: &str = "agent_view_projection";
 pub const AGENT_VIEW_PROJECTION_KIND: &str = "endpoint.agent-view.v1";
 pub const AGENT_COMPLETIONS_CAPABILITY: &str = "agent_completions";
 pub const AGENT_COMPLETIONS_KIND: &str = "endpoint.agent-completions.v1";
+pub const PORT_ANNOUNCEMENTS_CAPABILITY: &str = "port_announcements";
+pub const PORT_ANNOUNCEMENTS_KIND: &str = "endpoint.ports.v1";
+/// Sent by a client that wants `PORT_ANNOUNCEMENTS_KIND` messages. The server replies with the
+/// current list, then sends each change. Servers without the capability ignore it.
+pub const PORT_ANNOUNCEMENTS_SUBSCRIBE_KIND: &str = "endpoint.ports.subscribe.v1";
+
+/// Loopback ports on the server host that pane output announced and that accept connections.
+/// Each message replaces the previous list for the connection.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EndpointPortAnnouncements {
+    pub boot_id: String,
+    #[serde(default)]
+    pub ports: Vec<EndpointAnnouncedPort>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EndpointAnnouncedPort {
+    pub port: u16,
+    /// Public ID of the pane that announced the port, when it still exists.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pane_id: Option<String>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EndpointAgentCompletions {
@@ -119,6 +141,15 @@ pub fn agent_completions_message(
     })
 }
 
+pub fn port_announcements_message(
+    announcements: &EndpointPortAnnouncements,
+) -> serde_json::Result<ServerMessage> {
+    Ok(ServerMessage::EndpointControl {
+        kind: PORT_ANNOUNCEMENTS_KIND.into(),
+        data: serde_json::to_string(announcements)?,
+    })
+}
+
 pub fn agent_view_projection_message(
     boot_id: &str,
     revision: u64,
@@ -170,6 +201,7 @@ impl EndpointServerWelcome {
                 HEALTH_CHECK_CAPABILITY.into(),
                 AGENT_VIEW_PROJECTION_CAPABILITY.into(),
                 AGENT_COMPLETIONS_CAPABILITY.into(),
+                PORT_ANNOUNCEMENTS_CAPABILITY.into(),
             ],
             error: None,
         }
@@ -377,8 +409,25 @@ mod tests {
                 HEALTH_CHECK_CAPABILITY.to_string(),
                 AGENT_VIEW_PROJECTION_CAPABILITY.to_string(),
                 AGENT_COMPLETIONS_CAPABILITY.to_string(),
+                PORT_ANNOUNCEMENTS_CAPABILITY.to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn port_announcements_tolerate_missing_optional_fields() {
+        let decoded: EndpointPortAnnouncements =
+            serde_json::from_str(r#"{"boot_id":"boot","ports":[{"port":5173}]}"#).unwrap();
+        assert_eq!(
+            decoded.ports,
+            vec![EndpointAnnouncedPort {
+                port: 5173,
+                pane_id: None
+            }]
+        );
+        let decoded: EndpointPortAnnouncements =
+            serde_json::from_str(r#"{"boot_id":"boot","future":1}"#).unwrap();
+        assert!(decoded.ports.is_empty());
     }
 
     #[test]

@@ -521,6 +521,8 @@ pub(crate) enum ServerEvent {
     ClientShellMouseCapture { client_id: u64, enabled: bool },
     /// The committed shell asks the server to replay presentation effects before input resumes.
     ClientShellPresentationSync { client_id: u64, token: String },
+    /// The client wants announced-port lists (`endpoint.ports.v1`).
+    ClientShellPortSubscribe { client_id: u64 },
     /// A client-owned shell invoked one endpoint operation through this connection.
     ClientShellEndpointRequest {
         client_id: u64,
@@ -1341,6 +1343,11 @@ fn client_read_loop_with_endpoint_controls(
                     client_id,
                     token: data,
                 }
+            }
+            ClientMessage::EndpointControl { kind, .. }
+                if kind == crate::protocol::endpoint::PORT_ANNOUNCEMENTS_SUBSCRIBE_KIND =>
+            {
+                ServerEvent::ClientShellPortSubscribe { client_id }
             }
             ClientMessage::EndpointControl { kind, data } => {
                 let Some(response) = crate::server::client_endpoint_control::response(&kind, data)

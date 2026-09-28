@@ -110,6 +110,24 @@ impl SavedSshApiBridge {
     }
 }
 
+/// Opens TCP connections to loopback ports on a saved machine through SSH.
+pub(crate) struct SavedSshTunnel {
+    // Keeps the managed SSH config alive while tunnel processes may still start.
+    ssh: RemoteSsh,
+}
+
+impl SavedSshTunnel {
+    pub(crate) fn new(profile_id: &str, target: &str, session: &str) -> io::Result<Self> {
+        Ok(Self {
+            ssh: validated_saved_ssh(profile_id, target, session)?,
+        })
+    }
+
+    pub(crate) fn command(&self, remote_port: u16) -> std::process::Command {
+        self.ssh.stdio_forward_command(remote_port)
+    }
+}
+
 pub(crate) fn saved_ssh_bootstrap_command(target: &str, session: &str) -> String {
     format!(
         "herdr --remote {} --session {}",

@@ -67,6 +67,16 @@ Local opens immediately on startup without waiting for SSH connections. Selectin
 
 When a connection is lost, the last workspace and agent state remains visible but dimmed. That is cached information, not live state. Input and navigation into those cached panes stay disabled until a fresh connection and matching screen arrive. Reconnecting never takes selection away from the machine you are using.
 
+## Forwarded ports
+
+When a pane on a saved machine prints a loopback address such as `http://localhost:5173/`, `127.0.0.1:8000`, `0.0.0.0:3000`, or `[::1]:4000`, and a program on that machine accepts connections on the port, Herdr forwards the port to your computer. Open `http://localhost:5173/` locally to reach the remote development server. Ports below 1024 are not forwarded. Machines forward ports while they are connected in the background; you do not have to select them.
+
+Herdr uses the same local port number when it is free. If a local program already uses it, Herdr uses the next free port, up to 20 numbers higher. The **ports** section at the bottom of the sidebar shows each forward, for example `:5173 ← workbox` or `:5174 ← workbox:5173` when the local port differs. Click a row to open it in your browser. A `!` marks a forward whose last connection failed, for example because the SSH server does not allow TCP forwarding.
+
+The remote Herdr server checks announced ports every few seconds. When a port stops accepting connections, its forward closes. Each connection travels through `ssh -W localhost:<port>` with the saved machine's SSH settings, reusing the shared connection where Herdr manages it. Local listeners accept connections only from this computer.
+
+Forwards belong to the open client and close when it exits. Herdr remembers their local ports, so after a restart each port that the remote machine still serves returns on the same local port, and ports that stopped in the meantime are forgotten. If another Herdr client on this computer already forwards a port, the row is dimmed and that client keeps serving it; Herdr takes over when that client exits. The remote server needs this version of Herdr to announce ports. Set `remote.forward_ports = false` to turn forwarding off.
+
 ## Rename, disable, or remove
 
 Read profile IDs from the list rather than deriving them from labels or hostnames:

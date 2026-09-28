@@ -185,6 +185,10 @@ pub enum AppEvent {
         pane_id: PaneId,
         cwd: std::path::PathBuf,
     },
+    /// Pane output announced loopback ports, such as `http://localhost:5173/`.
+    PortsAnnounced { pane_id: PaneId, ports: Vec<u16> },
+    /// A background check of announced ports finished; each entry is (port, listening).
+    PortProbeFinished { results: Vec<(u16, bool)> },
     /// Background git status refresh completed for workspaces.
     GitStatusRefreshed {
         results: Vec<WorkspaceGitStatus>,

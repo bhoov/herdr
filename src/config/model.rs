@@ -1059,12 +1059,16 @@ pub struct RemoteConfig {
     /// Add keepalive fallbacks and private connection reuse for `herdr --remote`.
     /// Set false to run plain ssh unchanged. Default: true.
     pub manage_ssh_config: bool,
+    /// Forward loopback ports that saved-machine panes print, such as `localhost:5173`, to the
+    /// same or a nearby port on this computer while they are listening. Default: true.
+    pub forward_ports: bool,
 }
 
 impl Default for RemoteConfig {
     fn default() -> Self {
         Self {
             manage_ssh_config: true,
+            forward_ports: true,
         }
     }
 }

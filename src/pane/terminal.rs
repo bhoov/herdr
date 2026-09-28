@@ -37,6 +37,7 @@ use super::{
         AgentOscStateTracker, DefaultColorEvent, DefaultColorEventTracker, DefaultColorOscTracker,
         DefaultColorQuery, DefaultColorTrackedEvent, OscDebugTracker,
     },
+    port_scan::PortAnnouncementTracker,
     xtgettcap::{C1XtgettcapQueryTracker, C1XtgettcapResponse},
 };
 
@@ -170,6 +171,8 @@ pub(crate) struct ProcessBytesResult {
     pub clipboard_writes: Vec<Vec<u8>>,
     pub reported_cwd: Option<std::path::PathBuf>,
     pub terminal_responses: Vec<Bytes>,
+    /// Loopback ports that this output announced, such as `localhost:5173`.
+    pub announced_ports: Vec<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -211,6 +214,7 @@ pub(crate) struct GhosttyPaneCore {
     pub child_default_background_changed: bool,
     pub osc_debug_tracker: OscDebugTracker,
     pub agent_osc_state: AgentOscStateTracker,
+    port_announcements: PortAnnouncementTracker,
     decscusr_tracker: DecscusrTracker,
     cursor_settle_state: CursorPositionSettleState,
     windows_powershell_prompt_cwd_reporting: bool,
@@ -1192,6 +1196,7 @@ impl GhosttyPaneTerminal {
                 child_default_background_changed: false,
                 osc_debug_tracker: OscDebugTracker::default(),
                 agent_osc_state: AgentOscStateTracker::default(),
+                port_announcements: PortAnnouncementTracker::default(),
                 decscusr_tracker: DecscusrTracker::default(),
                 cursor_settle_state: CursorPositionSettleState::default(),
                 windows_powershell_prompt_cwd_reporting: false,
@@ -1359,6 +1364,7 @@ impl GhosttyPaneTerminal {
                 clipboard_writes: Vec::new(),
                 reported_cwd: None,
                 terminal_responses: Vec::new(),
+                announced_ports: Vec::new(),
             };
         };
 
@@ -1390,6 +1396,12 @@ impl GhosttyPaneTerminal {
         let terminal_title_changed = core.agent_osc_state.observe(bytes);
 
         core.kitty_keyboard.observe(bytes);
+        core.port_announcements.observe(bytes);
+        let announced_ports = if core.port_announcements.has_pending() {
+            core.port_announcements.take_announced(Instant::now())
+        } else {
+            Vec::new()
+        };
         let mut terminal_responses = Vec::new();
         core.default_color_event_tracker.observe(bytes);
         core.c1_xtgettcap_tracker.observe(bytes);
@@ -1476,6 +1488,7 @@ impl GhosttyPaneTerminal {
             clipboard_writes,
             reported_cwd,
             terminal_responses,
+            announced_ports,
         }
     }
 

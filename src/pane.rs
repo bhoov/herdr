@@ -29,6 +29,7 @@ mod cursor;
 mod input;
 mod kitty_keyboard;
 mod osc;
+mod port_scan;
 mod state;
 mod terminal;
 mod xtgettcap;
@@ -2062,6 +2063,19 @@ fn publish_terminal_bells(pane_id: PaneId, count: u16, events: &mpsc::Sender<App
     }
 }
 
+fn publish_announced_ports(pane_id: PaneId, ports: Vec<u16>, events: &mpsc::Sender<AppEvent>) {
+    if ports.is_empty() {
+        return;
+    }
+    if let Err(err) = events.try_send(AppEvent::PortsAnnounced { pane_id, ports }) {
+        warn!(
+            pane = pane_id.raw(),
+            err = %err,
+            "failed to queue announced ports"
+        );
+    }
+}
+
 fn publish_reported_cwd(
     pane_id: PaneId,
     cwd: std::path::PathBuf,
@@ -2467,6 +2481,7 @@ impl PaneRuntime {
                 if let Some(cwd) = result.reported_cwd.clone() {
                     publish_reported_cwd(pane_id, cwd, &reported_cwd, &read_events);
                 }
+                publish_announced_ports(pane_id, result.announced_ports, &read_events);
                 for content in result.clipboard_writes {
                     if let Err(err) = read_events.try_send(AppEvent::ClipboardWrite { content }) {
                         warn!(
@@ -2671,6 +2686,7 @@ impl PaneRuntime {
                 if let Some(cwd) = result.reported_cwd.clone() {
                     publish_reported_cwd(pane_id, cwd, &reported_cwd, &events);
                 }
+                publish_announced_ports(pane_id, result.announced_ports, &events);
                 for content in result.clipboard_writes {
                     if let Err(err) = events.try_send(AppEvent::ClipboardWrite { content }) {
                         warn!(

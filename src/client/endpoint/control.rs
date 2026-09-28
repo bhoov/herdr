@@ -10,6 +10,7 @@ pub(crate) enum EndpointControlMessage {
     HealthPong,
     AgentViewProjection(DecodedAgentViewProjection),
     AgentCompletions(crate::protocol::endpoint::EndpointAgentCompletions),
+    PortAnnouncements(crate::protocol::endpoint::EndpointPortAnnouncements),
     Snapshot(Box<crate::protocol::ClientShellSnapshot>),
     Ignored,
 }
@@ -24,6 +25,11 @@ pub(crate) fn decode_endpoint_control(
     if kind == crate::protocol::endpoint::AGENT_COMPLETIONS_KIND {
         return Ok(serde_json::from_str(data)
             .map(EndpointControlMessage::AgentCompletions)
+            .unwrap_or(EndpointControlMessage::Ignored));
+    }
+    if kind == crate::protocol::endpoint::PORT_ANNOUNCEMENTS_KIND {
+        return Ok(serde_json::from_str(data)
+            .map(EndpointControlMessage::PortAnnouncements)
             .unwrap_or(EndpointControlMessage::Ignored));
     }
     if kind == crate::protocol::endpoint::AGENT_VIEW_PROJECTION_KIND {
@@ -101,6 +107,32 @@ mod tests {
             panic!("expected completion projection");
         };
         assert_eq!(decoded, projection);
+        assert!(matches!(
+            decode_endpoint_control(&kind, "invalid").unwrap(),
+            EndpointControlMessage::Ignored
+        ));
+    }
+
+    #[test]
+    fn port_announcements_decode_and_malformed_payloads_are_ignored() {
+        let announcements = crate::protocol::endpoint::EndpointPortAnnouncements {
+            boot_id: "boot".into(),
+            ports: vec![crate::protocol::endpoint::EndpointAnnouncedPort {
+                port: 5173,
+                pane_id: Some("w1:p1".into()),
+            }],
+        };
+        let crate::protocol::ServerMessage::EndpointControl { kind, data } =
+            crate::protocol::endpoint::port_announcements_message(&announcements).unwrap()
+        else {
+            panic!("expected optional control");
+        };
+        let EndpointControlMessage::PortAnnouncements(decoded) =
+            decode_endpoint_control(&kind, &data).unwrap()
+        else {
+            panic!("expected port announcements");
+        };
+        assert_eq!(decoded, announcements);
         assert!(matches!(
             decode_endpoint_control(&kind, "invalid").unwrap(),
             EndpointControlMessage::Ignored

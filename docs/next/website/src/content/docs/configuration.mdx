@@ -117,9 +117,12 @@ Remote attach manages its SSH connection with temporary keepalives and, where su
 ```toml
 [remote]
 manage_ssh_config = true
+forward_ports = true
 ```
 
 When enabled, `herdr --remote` writes a private temporary SSH config that includes your user and system SSH configs first, then adds fallback `ServerAliveInterval` and `ServerAliveCountMax` values. Your own keepalive settings win. Linux and macOS clients also use a private per-attach OpenSSH control socket to reuse the first authenticated connection; Windows OpenSSH does not. Set `manage_ssh_config = false` to run remote attach through plain `ssh` without Herdr's generated config or control socket.
+
+`forward_ports` forwards loopback ports that saved-machine panes print, such as `localhost:5173`, to the same or a nearby port on this computer while they accept connections. See [Forwarded ports](/docs/connecting-machines/#forwarded-ports).
 
 ## Keybindings
 

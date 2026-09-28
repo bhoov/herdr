@@ -553,6 +553,19 @@ pub(super) fn render_expanded(
             }),
         );
     }
+    let ports_height = super::port_forwards::section_height(detail_area, state.port_forwards);
+    let (detail_area, ports_area) = (
+        Rect {
+            height: detail_area.height - ports_height,
+            ..detail_area
+        },
+        Rect {
+            y: detail_area.bottom() - ports_height,
+            height: ports_height,
+            ..detail_area
+        },
+    );
+    super::port_forwards::render(buffer, ports_area, state.port_forwards, config, hits);
     super::endpoint_agents::render_expanded(
         buffer,
         detail_area,

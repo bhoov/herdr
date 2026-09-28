@@ -808,6 +808,21 @@ impl RemoteSsh {
         command
     }
 
+    /// Returns ssh that connects its stdin and stdout to `localhost:port` on the remote host.
+    /// Through a shared connection this is a lightweight multiplexed channel.
+    pub(super) fn stdio_forward_command(&self, port: u16) -> Command {
+        let mut command = self.base_command();
+        if self.noninteractive {
+            apply_noninteractive_ssh_options(&mut command);
+        }
+        // -W implies -N, -T, ExitOnForwardFailure, and ClearAllForwardings.
+        command
+            .arg("-W")
+            .arg(format!("localhost:{port}"))
+            .arg(&self.target);
+        command
+    }
+
     fn base_command(&self) -> Command {
         let mut command = Command::new("ssh");
         apply_managed_ssh_options(&mut command, self.options());

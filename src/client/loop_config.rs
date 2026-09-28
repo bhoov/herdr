@@ -15,4 +15,6 @@ pub(super) struct ClientLoopConfig {
     pub(super) remote_image_paste_key:
         Option<(crossterm::event::KeyCode, crossterm::event::KeyModifiers)>,
     pub(super) shell_config: Option<shell::ClientShellConfig>,
+    /// Forward ports that saved machines announce (`remote.forward_ports`).
+    pub(super) forward_ports: bool,
 }
