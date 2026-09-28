@@ -4,8 +4,8 @@
 # machines can run it in any order: the first one pushes the merge, the others fast-forward.
 #
 # Setup, once per machine (full steps, including PATH, in myherdr/README.md):
-#   git clone -b feat/remote-port-forwarding git@github.com:bhoov/herdr.git ~/src/myherdr
-#   ln -sf ~/src/myherdr/myherdr/update.sh ~/.local/bin/myherdr-update
+#   git clone -b feat/remote-port-forwarding git@github.com:bhoov/herdr.git ~/Projects/myherdr
+#   ln -sf ~/Projects/myherdr/myherdr/update.sh ~/.local/bin/myherdr-update
 #
 # Do not run `myherdr update`: that is Herdr's own updater, which installs official releases.
 set -euo pipefail

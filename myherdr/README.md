@@ -18,11 +18,11 @@ os=$(uname -s | tr A-Z a-z | sed 's/darwin/macos/'); arch=$(uname -m | sed 's/ar
 mkdir -p ~/.local/share && curl -sSfL "https://ziglang.org/download/0.16.0/zig-$arch-$os-0.16.0.tar.xz" | tar xJ -C ~/.local/share
 
 # Checkout used only for builds (use the https URL on machines that cannot push)
-git clone -b feat/remote-port-forwarding git@github.com:bhoov/herdr.git ~/src/myherdr
+git clone -b feat/remote-port-forwarding git@github.com:bhoov/herdr.git ~/Projects/myherdr
 
 # Put myherdr-update on your PATH
 mkdir -p ~/.local/bin
-ln -sf ~/src/myherdr/myherdr/update.sh ~/.local/bin/myherdr-update
+ln -sf ~/Projects/myherdr/myherdr/update.sh ~/.local/bin/myherdr-update
 ```
 
 If `~/.local/bin` is not on your `PATH` yet, add it to your shell startup file and open
@@ -50,7 +50,7 @@ myherdr-update --restart-server   # remote machine: also restart its server on t
 Each run merges your pushed branch and upstream `master`, pushes the merge (unless
 `--no-push`), and rebuilds only when the commit changed. Machines can update in any
 order. On a conflict, the script stops; merge `upstream/master` by hand in
-`~/src/myherdr` and run it again.
+`~/Projects/myherdr` and run it again.
 
 `--restart-server` stops the running Herdr server, which ends the programs in its panes.
 Without it, the old server keeps running until it restarts.
