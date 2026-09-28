@@ -3,7 +3,7 @@
 # `myherdr`. Run it on every machine that uses the fork. It merges instead of rebasing, so
 # machines can run it in any order: the first one pushes the merge, the others fast-forward.
 #
-# Setup, once per machine:
+# Setup, once per machine (full steps, including PATH, in myherdr/README.md):
 #   git clone -b feat/remote-port-forwarding git@github.com:bhoov/herdr.git ~/src/myherdr
 #   ln -sf ~/src/myherdr/myherdr/update.sh ~/.local/bin/myherdr-update
 #
